@@ -11,6 +11,7 @@ typedef struct token{
     struct token *next;
 } token;
 
+//Function to create a new token into the list
 token* CreateToken(char* type, int line_num, char* description) {
     token* newtoken = (token*)malloc(sizeof(token));
     if(newtoken == NULL) {
@@ -24,6 +25,50 @@ token* CreateToken(char* type, int line_num, char* description) {
     newtoken->next = NULL;
 
     return newtoken;
+}
+
+//Function to add a new token to the list
+void AddToken(token** head, char* type, int line_num, char* descripton) {
+    token* newtoken = CreateToken(type, line_num, descripton);
+    if(*head == NULL) {
+        *head = newtoken;
+        return;
+    }
+    else {
+        token* current = *head;
+        while(current->next != NULL) {
+            current = current->next;
+        }
+        current->next = newtoken;
+    }
+}
+
+//Function to print the list of tokens
+void ShowTokens(token* head) {
+    if(head == NULL) {
+        printf("No tokens found.\n");
+        return;
+    }
+    printf("Bug Detected:\n");
+    token* current = head;
+    while(current!= NULL) {
+        printf("Token Type: %s\n", current->type);
+        printf("Line Number: %d\n", current->line_num);
+        printf("Description: %s\n", current->description);
+        printf("\n");
+        current = current->next;
+    }
+}
+
+//Funtion to free the memory allocated for the list
+void delete_tokens(token* head){
+    token* current = head;
+    token* next;
+    while(current != NULL){
+        next = current->next;
+        free(current);
+        current = next;
+    }
 }
 
 int main() {
