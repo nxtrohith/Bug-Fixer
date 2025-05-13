@@ -1,0 +1,44 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+struct Node {
+    int data;
+    struct Node* next;
+};
+
+// Function with a missing closing bracket
+void processData(int value) {
+    if (value > 0) {
+        printf("Processing positive value: %d\n", value);
+        
+        // First bracket error: missing closing bracket for this if statement
+        if (value % 2 == 0 {
+            printf("Value is even\n");
+        }
+    // The closing bracket for the outer if statement is present
+    }
+
+// Second bracket error: function is missing its closing bracket
+
+// Function with correct brackets for comparison
+void displayNode(struct Node* node) {
+    if (node != NULL) {
+        printf("Node data: %d\n", node->data);
+    }
+}
+
+int main() {
+    // Create a sample node
+    struct Node* node = (struct Node*)malloc(sizeof(struct Node));
+    node->data = 42;
+    node->next = NULL;
+    
+    // Call functions
+    processData(10);
+    displayNode(node);
+    
+    // Free memory
+    free(node);
+    
+    return 0;
+}
