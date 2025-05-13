@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 #include <ctype.h>
+#include "bracketcheck.c"
 
 typedef struct token{
     char type[50];
@@ -71,7 +71,25 @@ void delete_tokens(token* head){
     }
 }
 
+//Function to check for bugs and create a list of tokens
+void analyse_code(const char* code, token** tokenList) {
+    FILE* file = fopen(code, "r");
+    if(file == NULL){
+        printf("Error opening file. Please check the file name and try again.\n testcase.txt\n");
+        return;
+    }
+
+    char line[100];
+    int line_num = 1;
+
+    while(fgets(line, sizeof(line), file) != NULL){
+        
+    }
+}
+
 int main() {
+    char testcase[90000];
+    token* tokenList = NULL;
     printf("====Bug-Detection in C using C====\n");
     
 
