@@ -7,7 +7,7 @@ struct Node {
 };
 
 // Function with missing semicolons
-void processData(int value) {
+void processData(int value{
     int result = value * 2
     printf("Processing value: %d\n", value)
     
@@ -28,7 +28,7 @@ int calculateSum(int num) {
     // Missing semicolon in for loop initialization
     for(int i = 0 i <= num; i++) {
         sum += i;
-    }
+    
     return sum;
 }
 

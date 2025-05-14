@@ -131,25 +131,37 @@ void analyse_code(const char* code, token** tokenList) {
         if(stack[top] == '(') expected_bracket = ')';
         else if(stack[top] == '{') expected_bracket = '}';
         else expected_bracket = ']';
-        
         sprintf(description, "Unclosed bracket '%c' - missing '%c'", stack[top], expected_bracket);
         AddToken(tokenList, "Bracket Error", bracket_positions[top], description);
         top--;
     }}
 
-    line_num = 1;    
+    line_num = 1;
     fseek(file, 0, SEEK_SET); // Reset file pointer to the beginning
+
+    // Track if we're inside a struct definition
+    int in_struct_definition = 0;
 
     //Check for Missing semicolons(;)
     while(fgets(line, sizeof(line), file)!= NULL){
         //writing the exception cases for missing semicolons which are made to beautify the code or like whitelines and comments.
         if(line[0] == '\n' || (line[0] == '/' && line[1] == '/') || (line[0] == '/' && line[1] == '*') || (line[0] == '*' && line[1] == '/')){
+            line_num++;
             continue;
         }
 
         //skip preprocessor directives
         if(line[0] == '#'){
+            line_num++;
             continue;
+        }
+
+        // Check if entering or exiting a struct definition
+        if(strstr(line, "struct") && strstr(line, "{")) {
+            in_struct_definition = 1;
+        }
+        if(strstr(line, "}") && in_struct_definition) {
+            in_struct_definition = 0;
         }
 
         //check for missing semicolons in statements
@@ -157,12 +169,13 @@ void analyse_code(const char* code, token** tokenList) {
         int should_have_semicolon = 0;
 
         //remove trailing whitespace
-        while(len > 0 && isspace(line[len - 1]) || line[len - 1] == '\t'){
+        while(len > 0 && (isspace(line[len - 1]) || line[len - 1] == '\t')){
             line[len - 1] = '\0';
             len--;
         }
 
-        if(line == 0){
+        if(len == 0){
+            line_num++;
             continue;
         }
 
@@ -219,15 +232,15 @@ void analyse_code(const char* code, token** tokenList) {
         }
 
         //check for variable and function declaration
-        if(strstr(line, "int ") || strstr(line, "char ") ||
+        if((strstr(line, "int ") || strstr(line, "char ") ||
            strstr(line, "float ") || strstr(line, "double ") ||
-           strstr(line, "void ") || strstr(line, "struct ") &&
+           strstr(line, "void ") || strstr(line, "struct ")) &&
            !strstr(line, "{")) {
             should_have_semicolon = 1;
         }
 
         //check if the line is ending with a semicolon
-        if(should_have_semicolon && line[len - 1] != ';'){
+        if(should_have_semicolon && !in_struct_definition && line[len - 1] != ';'){
             char description[100];
             sprintf(description, "Missing semicolon at the end of line %d", line_num);
             AddToken(tokenList, "Missing Semicolon", line_num, description);
@@ -254,17 +267,13 @@ void analyse_code(const char* code, token** tokenList) {
                     sprintf(description, "Extra semicolon at line %d", line_num);
                     AddToken(tokenList, "Extra Semicolon", line_num, description);
                     consecutive_semicolons = 0;
-                }else if(!isspace(line[i])){
-                    consecutive_semicolons = 0;
                 }
+            } else if(!in_string && !isspace(line[i])){
+                consecutive_semicolons = 0;
             }
         }
         line_num++;
     }}
-
-    line_num = 1;
-    fseek(file, 0, SEEK_SET); // Reset file pointer to the beginning
-
 
     fclose(file);
 }
@@ -290,23 +299,13 @@ void sort_tokens(token** head) {
         current = current->next;
     }
 }
-// void reverse_list(token** head){
-//     token* prev_token = NULL;
-//     token* current_token = *head;
-//     token* next_token = NULL;
-    
-//     while(current_token != NULL){
-//         next_token = current_token -> next;
-//     }
-// }
 
 int main() {
     char testcase[90000];
     token* tokenList = NULL;
     printf("====Bug-Detection in C using C====\n");
-    AddToken(&tokenList, "testdebug", 1, "Extra opening bracket");
     analyse_code("testcase.txt", &tokenList);
-    sort_tokens(&tokenList);
+    // sort_tokens(&tokenList);
     ShowTokens(tokenList);
     delete_tokens(tokenList);
 
