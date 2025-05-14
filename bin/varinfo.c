@@ -89,5 +89,12 @@ char* ExtractVarFromDeclaration(char* line){
     strncpy(var_name, type_end, name_length);
     var_name[name_length] = '\0';
 
+    //Trimming trailing whitespaces
+    int i = name_length - 1;
+    while(i >= 0 && var_name[i] == ' ' || var_name[i] == '\t'){
+        var_name[i] = '\0';
+        i--;
+    }
+
     return var_name;
 }
