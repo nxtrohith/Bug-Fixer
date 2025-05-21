@@ -41,17 +41,14 @@ VariableInfo* createVariableInfo(char* name, char* type, int line, int initializ
 }
 void addVariable(VariableInfo** head, char* name, char* type, int line, int initialized) {
     VariableInfo* newVar = createVariableInfo(name, type, line, initialized);
-    
     if (*head == NULL) {
         *head = newVar;
         return;
     }
-    
     VariableInfo* current = *head;
     while (current->next != NULL) {
         current = current->next;
     }
-    
     current->next = newVar;
 }
 
@@ -323,9 +320,14 @@ FunctionInfo* createFunctionInfo(char* name, int start_line) {
 
 void addFunction(FunctionInfo** head, char* name, int start_line) {
     FunctionInfo* newFunc = createFunctionInfo(name, start_line);
-    if (!*head) { *head = newFunc; return; }
+    if (!*head) {
+        *head = newFunc;
+        return;
+    }
     FunctionInfo* current = *head;
-    while (current->next) current = current->next;
+    while (current->next) {
+        current = current->next;
+    }
     current->next = newFunc;
 }
 
@@ -494,6 +496,7 @@ void freeFunctionList(FunctionInfo* head) {
     }
 }
 
+
 void displayVariables(VariableInfo* head) {
     if (head == NULL) {
         printf("No variables found.\n");
@@ -506,20 +509,18 @@ void displayVariables(VariableInfo* head) {
         current = current->next;
     }
 }
-void memory_leaks(VariableInfo* head) {
-    if (head == NULL) {
-        printf("No variables found.\n");
-        return;
-    }
+
+void freeVariableList(VariableInfo* head) {
     VariableInfo* current = head;
-    printf("Memory Leaks Detected:\n\n");
-    while (current!= NULL) {
-        if (!current->is_freed && strstr(current->type, "pointer") != NULL) {
-            printf("Memory leak detected for variable '%s' on line %d.\n", current->name, current->declaration_line);
-        }
-        current = current->next;
+    VariableInfo* next;
+
+    while (current != NULL) {
+        next = current->next;
+        free(current);
+        current = next;
     }
 }
+
 VariableInfo* extractAllVariables(const char* filename) {
     FILE* file = fopen(filename, "r");
     if (file == NULL) {

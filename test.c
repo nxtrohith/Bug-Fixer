@@ -463,7 +463,7 @@ void report_variables(){
         printf("Debug: extractAllVariables returned NULL\n");
     }
     displayVariables(Variables);
-    // memory_leaks(Variables);
+    freeVariableList(Variables); // Free the allocated variable list
 }
 
 void report_functions(){
@@ -474,7 +474,7 @@ void report_functions(){
         printf("Debug: extractAllFunctions returned NULL\n");
     }
     displayFunctions(Funcs);
-    
+    freeFunctionList(Funcs); // Free the allocated function list
 }
 
 int main() {
