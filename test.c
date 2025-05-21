@@ -385,7 +385,6 @@ void analyse_code(const char* code, token** tokenList) {
             line_num++;
             continue;
         }
-
         // 1. Detect Variable Declarations and add to tracked_variables
         if (isVariableDeclaration(line)) {
             char* var_name = extractVariableFromDeclaration(line);
@@ -457,7 +456,6 @@ void analyse_code(const char* code, token** tokenList) {
                     }
 
                     // Exclude lines that are themselves declarations or assignments to this variable
-                    // This is a simplified heuristic.
                     if (is_whole_word && !isVariableDeclaration(line) && strchr(line, '=') == NULL) {
                         char description[100];
                         sprintf(description, "Variable '%s' used before initialization at line %d", current_var->name, line_num);
@@ -481,6 +479,7 @@ void report_variables(){
         printf("Debug: extractAllVariables returned NULL\n");
     }
     displayVariables(Variables);
+    memory_leaks(Variables);
 }
 
 //Report for the functions.
@@ -502,14 +501,16 @@ int main() {
 
     printf("====Bug-Detection in C using C====\n");
     analyse_code("testcase.txt", &tokenList);
-
-    ShowTokens(tokenList);
-    delete_tokens(tokenList);
-
+    
     //variables report
     report_variables();
     //Functions report
     report_functions();
+
+
+    ShowTokens(tokenList);
+    delete_tokens(tokenList);
+
 
     return 0;
 }

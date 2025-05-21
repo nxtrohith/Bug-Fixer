@@ -470,25 +470,31 @@ void freeFunctionList(FunctionInfo* head) {
 }
 
 void displayVariables(VariableInfo* head) {
-    printf("\nCollected Variables:\n");
     if (head == NULL) {
         printf("No variables found.\n");
         return;
     }
     VariableInfo* current = head;
+    printf("Variables Detected:\n\n");
     while (current != NULL) {
-        printf("Name: %s, Type: %s, Declared at line: %d, Initialized: %s, Freed: %s\n",
-            current->name,
-            current->type,
-            current->declaration_line,
-            current->is_initialized ? "Yes" : "No",
-            current->is_freed ? "Yes" : "No");
-            printf("Variables Detected:\n\n");
-            printf("Name: %s\nType: %s\nLine: %d\tInitialised: %s\tfreed: ", current->name);
+            printf("Name: %s\nType: %s\nLine: %d\tInitialised: %s\tfreed: %s\n\n", current->name, current->type, current->declaration_line, current->is_initialized? "Yes" : "No", current->is_freed? "Yes" : "No");
         current = current->next;
     }
 }
-
+void memory_leaks(VariableInfo* head) {
+    if (head == NULL) {
+        printf("No variables found.\n");
+        return;
+    }
+    VariableInfo* current = head;
+    printf("Memory Leaks Detected:\n\n");
+    while (current!= NULL) {
+        if (!current->is_freed && strcmp(current->type, "pointer") == 0) {
+            printf("Memory leak detected for variable '%s' on line %d.\n", current->name, current->declaration_line);
+        }
+        current = current->next;
+    }
+}
 // Function to extract all variables from a file
 VariableInfo* extractAllVariables(const char* filename) {
     FILE* file = fopen(filename, "r");
