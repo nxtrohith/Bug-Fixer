@@ -1,58 +1,29 @@
 #include <stdio.h>
-#include<stdlib.h>
+#include <stdlib.h>
 
-struct Node {
-    int data;
-    struct Node* next;
-};
-
-// Function with missing semicolons
-void processData(int value{
-    int result = value * 2
-    printf("Processing value: %d\n", value)
-    
-    if (value > 0) {
-        printf("Positive value detected\n");
-        int isEven = (value % 2 == 0)
-        if (isEven) {
-            printf("Value is even\n")
-        }
+void processData(int x) {
+    int i;
+    for(i = 0; i < x; i++) {
+        printf("%d\n", i);
     }
-    
-    // Extra semicolon after function call
-    calculateSum(value);;
 }
 
-int calculateSum(int num) {
-    int sum = 0;
-    // Missing semicolon in for loop initialization
-    for(int i = 0 i <= num; i++) {
-        sum += i;
-    
+int calculateSum(int a, int b) {
+    int sum = a + b;
     return sum;
 }
 
-void displayNode(struct Node* node) {
-    if (node != NULL) {
-        // Extra semicolon after if statement
-        if (node->data > 0);{
-            printf("Node data: %d\n", node->data)
-        }
-    }
+void displayNode(int node) {
+    printf("Node: %d\n", node);
 }
 
 int main() {
-    // Create a sample node
-    struct Node* node = (struct Node*)malloc(sizeof(struct Node))
-    node->data = 42;
-    node->next = NULL
-    
-    // Call functions
+    int node = 5;
     processData(10);
+    int result = calculateSum(3, 4);
     displayNode(node);
-    
-    // Free memory
-    free(node);
-    
+    printf("Sum: %d\n", result);
+    free(&node); // Only valid if node was dynamically allocated; otherwise, remove this line
+    // printf("9/0"); // Division by zero removed
     return 0;
 }

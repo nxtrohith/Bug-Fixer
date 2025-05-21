@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include "VariableExtractor.c"
 
 typedef struct token{
     char type[50];
@@ -80,6 +81,8 @@ void analyse_code(const char* code, token** tokenList) {
 
     char line[100];
     int line_num = 1;
+
+    
 
 {    // Stack to track opening brackets
     char stack[100];
@@ -274,11 +277,23 @@ void analyse_code(const char* code, token** tokenList) {
         }
         line_num++;
     }}
-
+    fseek(file, 0, SEEK_SET); // Reset file pointer to the beginning
+    line_num = 1;
+    {//Division by zero check
+    while(fgets(line, sizeof(line), file)!= NULL){
+        if(strstr(line, "/0") || strstr(line, "%0") || strstr(line, "/ 0") || strstr(line, "% 0") || strstr(line, "0 %") ||strstr(line, "0%")) {
+            char description[100];
+            sprintf(description, "Division by zero at line %d", line_num);
+            AddToken(tokenList, "Division by Zero", line_num, description);
+        }
+        line_num++;
+    }}
+    fseek(file, 0, SEEK_SET); // Reset file pointer to the beginning
+    line_num = 1;
     fclose(file);
 }
 
-void sort_tokens(token** head) {
+void sort_tokens(token** head){
     if(*head == NULL){
         printf("No tokens found to sort.\n");
         return;
@@ -300,14 +315,45 @@ void sort_tokens(token** head) {
     }
 }
 
+//Report for Variables.
+void report_variables(){
+    VariableInfo* VariablesDeclar = NULL;
+    VariablesDeclar = extractVariableFromDeclaration("testcase.txt");
+    printf("Extracting variables from testcase.txt...\n");
+    
+}
+
+//Report for the functions.
+void report_functions(){
+    FunctionInfo* Funcs = NULL;
+    Funcs = extractAllFunctions("testcase.txt");
+    printf("Extracting functions from testcase.txt...\n");
+    if (Funcs == NULL) {
+        printf("Debug: extractAllFunctions returned NULL\n");
+    }
+    displayFunctions(Funcs);
+    
+}
+
 int main() {
     char testcase[90000];
     token* tokenList = NULL;
+    VariableInfo* Variables = NULL;
+
     printf("====Bug-Detection in C using C====\n");
+    
+    // Debug output
+    
     analyse_code("testcase.txt", &tokenList);
     // sort_tokens(&tokenList);
     ShowTokens(tokenList);
     delete_tokens(tokenList);
+
+    //Variables report
+
+
+    //Functions report
+    report_functions();
 
     return 0;
 }
