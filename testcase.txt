@@ -25,12 +25,14 @@ int main() {
         return 1;
     }
     *node = 5;
+    strcpy("rohith", line);
+    strcpy
 
     processData(10);
     int result = calculateSum(3, 4);
     displayNode(*node);
     printf("Sum: %d\n", result);
-
+    printf("%d", numberro)
     // Free allocated memory
     free(node);
     free(rohith);

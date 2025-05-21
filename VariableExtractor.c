@@ -83,7 +83,6 @@ char* extractVariableFromDeclaration(char* line) {
     static char var_name[50];
     char* type_end = NULL;
     char* name_end = NULL;
-    
     // Skip type (find first space after type)
     type_end = strchr(line, ' ');
     if (type_end == NULL) return NULL;

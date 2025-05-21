@@ -292,32 +292,184 @@ void analyse_code(const char* code, token** tokenList) {
     line_num = 1;
 
     while(fgets(line, sizeof(line), file)!= NULL){
-        //Extracting variables
+        //unsafe gets
+        if(strstr(line, "gets")){
+            char description[100];
+            sprintf(description, "Unsafe option of using gets use fgets instead line: %d", line_num);
+            AddToken(tokenList, "unsafe option", line_num, description);
+        }
 
+        if (strstr(line, "strcpy") != NULL || strstr(line, "strcat") != NULL) {
+            if (strstr(line, "strncpy") == NULL && strstr(line, "strncat") == NULL) {
+                char description[100];
+                sprintf(description, "Buffer overflow: Unsafe String operation without bounds checking");
+                AddToken(tokenList, "Buffer Overflow", line_num, description);
+                if(strstr(line, "(") == NULL || strstr(line, ")") == NULL) {
+                    char description[100];
+                    sprintf(description, "Missing arguments for strcpy or strcat at line %d", line_num);
+                    AddToken(tokenList, "Missing Arguments", line_num, description);
+                }
+            }else{
+            if(strstr(line, "(") == NULL || strstr(line, ")") == NULL) {
+                char description[100];
+                sprintf(description, "Missing arguments for strcpy or strcat at line %d", line_num);
+                AddToken(tokenList, "Missing Arguments", line_num, description);
+            }
+          }
+        }
+
+        // Check for null pointer dereference
+        if (strstr(line, "->" ) != NULL || strstr(line, "*") != NULL) {
+            if (strstr(line, "NULL") == NULL && strstr(line, "!= NULL") == NULL) {
+                char description[100];
+                sprintf(description, "Possible null pointer dereference at line %d", line_num);
+                AddToken(tokenList, "Null Pointer", line_num, description);
+            }
+        }
+
+        // check for free block without arguments
+        if(strstr(line, "free") != NULL && (strstr(line, "(") == NULL || strstr(line, ")") == NULL)){
+            char description[100];
+            sprintf(description, "No reference for free at line %d", line_num);
+            AddToken(tokenList, "free error", line_num, description);
+        }
+        //memoryallocation
+        if(strstr(line, "malloc")!= NULL && (strstr(line, "(") == NULL || strstr(line, ")") == NULL)){
+            char description[100];
+            sprintf(description, "No reference for malloc at line %d", line_num);
+            AddToken(tokenList, "malloc error", line_num, description);
+        }
+        //memoryallocation
+        if(strstr(line, "calloc")!= NULL && (strstr(line, "(") == NULL || strstr(line, ")") == NULL)){
+            char description[100];
+            sprintf(description, "No reference for calloc at line %d", line_num);
+            AddToken(tokenList, "calloc error", line_num, description);
+        }
+        //memoryallocation
+        if(strstr(line, "realloc")!= NULL && (strstr(line, "(") == NULL || strstr(line, ")") == NULL)){
+            char description[100];
+            sprintf(description, "No reference for realloc at line %d", line_num);
+            AddToken(tokenList, "realloc error", line_num, description);
+        }
+        //memoryallocation
+        if(strstr(line, "exit")!= NULL && (strstr(line, "(") == NULL || strstr(line, ")") == NULL)){
+            char description[100];
+            sprintf(description, "No reference for exit at line %d", line_num);
+            AddToken(tokenList, "exit error", line_num, description);
+        }
+
+        line_num++;
+    }
+    fseek(file, 0, SEEK_SET);
+    line_num = 1;
+    VariableInfo* tracked_variables = NULL; // List to track variables in scope
+
+    while(fgets(line, sizeof(line), file) != NULL){
+        // Skip comments and preprocessor directives for simpler analysis
+        if(line[0] == '\n' || (line[0] == '/' && line[1] == '/') || (line[0] == '/' && line[1] == '*') || (line[0] == '*' && line[1] == '/')){
+            line_num++;
+            continue;
+        }
+        if(line[0] == '#'){
+            line_num++;
+            continue;
+        }
+
+        // Trim trailing whitespace from the line
+        int len = strlen(line);
+        while(len > 0 && (isspace(line[len - 1]) || line[len - 1] == '\t')){
+            line[len - 1] = '\0';
+            len--;
+        }
+        if(len == 0){ // Skip empty lines after trimming
+            line_num++;
+            continue;
+        }
+
+        // 1. Detect Variable Declarations and add to tracked_variables
+        if (isVariableDeclaration(line)) {
+            char* var_name = extractVariableFromDeclaration(line);
+            char* var_type = extractVariableType(line);
+            int initialized = isInitialized(line);
+
+            if (var_name != NULL && var_type != NULL) {
+                // If the variable is already tracked (e.g., re-declaration in a new scope), update its info.
+                VariableInfo* existing_var = findVariable(tracked_variables, var_name);
+                if (existing_var == NULL) {
+                     addVariable(&tracked_variables, var_name, var_type, line_num, initialized);
+                } else {
+                    // Update the latest declaration line and initialization status
+                    existing_var->declaration_line = line_num;
+                    existing_var->is_initialized = initialized;
+                }
+            }
+        }
+
+        // 2. Detect Assignments and mark variables as initialized
+        // This is a simplified check for assignments like `variable_name = value;`
+        char *equals_pos = strchr(line, '=');
+        if (equals_pos != NULL) {
+            // Attempt to extract the variable name on the left-hand side of '='
+            char *name_end_ptr = equals_pos - 1;
+            while (name_end_ptr >= line && isspace(*name_end_ptr)) {
+                name_end_ptr--;
+            }
+
+            char *name_start_ptr = name_end_ptr;
+            while (name_start_ptr >= line && (isalnum(*name_start_ptr) || *name_start_ptr == '_')) {
+                name_start_ptr--;
+            }
+            name_start_ptr++; // Move to the actual start of the variable name
+
+            if (name_start_ptr < equals_pos) { // Ensure a variable name was found before '='
+                char var_name_assigned[50];
+                int name_len = name_end_ptr - name_start_ptr + 1;
+                if (name_len > 0 && name_len < 50) {
+                    strncpy(var_name_assigned, name_start_ptr, name_len);
+                    var_name_assigned[name_len] = '\0';
+
+                    VariableInfo* var = findVariable(tracked_variables, var_name_assigned);
+                    if (var != NULL) {
+                        var->is_initialized = 1; // Mark the variable as initialized upon assignment
+                    }
+                }
+            }
+        }
+        
+        // 3. Detect Variable Usage and Check for Uninitialization
+        VariableInfo* current_var = tracked_variables;
+        while (current_var != NULL) {
+            // Check only if the variable has been declared at or before the current line
+            // and if it's currently marked as uninitialized.
+            if (current_var->declaration_line <= line_num && current_var->is_initialized == 0) {
+                // Look for the variable's name in the current line
+                char* found_usage = strstr(line, current_var->name);
+
+                if (found_usage != NULL) {
+                    // Apply a basic word boundary check to reduce false positives
+                    // (e.g., "my_var" should not trigger if "another_my_variable" is found)
+                    int is_whole_word = 1;
+                    if (found_usage > line && (isalnum(*(found_usage - 1)) || *(found_usage - 1) == '_')) {
+                        is_whole_word = 0;
+                    }
+                    if (*(found_usage + strlen(current_var->name)) != '\0' && (isalnum(*(found_usage + strlen(current_var->name))) || *(found_usage + strlen(current_var->name)) == '_')) {
+                        is_whole_word = 0;
+                    }
+
+                    // Exclude lines that are themselves declarations or assignments to this variable
+                    // This is a simplified heuristic.
+                    if (is_whole_word && !isVariableDeclaration(line) && strchr(line, '=') == NULL) {
+                        char description[100];
+                        sprintf(description, "Variable '%s' used before initialization at line %d", current_var->name, line_num);
+                        AddToken(tokenList, "Uninitialized Variable", line_num, description);
+                    }
+                }
+            }
+            current_var = current_var->next;
+        }
+        line_num++;
     }
     fclose(file);
-}
-
-void sort_tokens(token** head){
-    if(*head == NULL){
-        printf("No tokens found to sort.\n");
-        return;
-    }
-    token* current = *head;
-    token* index = NULL;
-    int temp;
-    while(current!= NULL){
-        index = current -> next;
-        while(index!= NULL){
-            if(current->line_num > index->line_num){
-                temp = current->line_num;
-                current->line_num = index->line_num;
-                index->line_num = temp;
-            }
-            index = index->next;
-        }
-        current = current->next;
-    }
 }
 
 //report Variables
@@ -349,15 +501,10 @@ int main() {
     VariableInfo* Variables = NULL;
 
     printf("====Bug-Detection in C using C====\n");
-    
-    // Debug output
-    
     analyse_code("testcase.txt", &tokenList);
-    // sort_tokens(&tokenList);
+
     ShowTokens(tokenList);
     delete_tokens(tokenList);
-
-    //Variables report
 
     //variables report
     report_variables();
