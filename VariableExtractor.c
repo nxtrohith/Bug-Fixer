@@ -77,37 +77,51 @@ void markVariableAsFreed(VariableInfo* head, char* name) {
         var->is_freed = 1;
     }
 }
-
 // Function to extract variable name from a declaration
 char* extractVariableFromDeclaration(char* line) {
     static char var_name[50];
-    char* type_end = NULL;
-    char* name_end = NULL;
-    // Skip type (find first space after type)
-    type_end = strchr(line, ' ');
-    if (type_end == NULL) return NULL;
-    
-    // Skip any additional spaces
-    while (*type_end == ' ') type_end++;
-    
-    // Find end of variable name (semicolon, equals sign, comma, bracket, etc.)
-    name_end = strpbrk(type_end, ";=,[(\n");
-    if (name_end == NULL) return NULL;
-    
-    // Extract the variable name
-    int name_len = name_end - type_end;
+    char* current_pos = line;
+
+    // 1. Skip leading whitespace before the type
+    while (*current_pos && isspace((unsigned char)*current_pos)) {
+        current_pos++;
+    }
+    if (*current_pos == '\0') return NULL; // Line is empty or all whitespace
+
+    // 2. Skip the type keyword
+    char* type_keyword_end = current_pos;
+    while (*type_keyword_end && !isspace((unsigned char)*type_keyword_end)) {
+        type_keyword_end++;
+    }
+    // 3. Skip spaces between the type and the variable name
+    char* name_start_ptr = type_keyword_end;
+    while (*name_start_ptr && isspace((unsigned char)*name_start_ptr)) {
+        name_start_ptr++;
+    }
+    if (*name_start_ptr == '\0' || *name_start_ptr == ';') return NULL; // No variable name found (e.g., "int ;")
+
+    // 4. Find the end of the variable name
+    char* name_end_ptr = name_start_ptr;
+    // Variable name ends at ';', '=', ',', '[', '(', or newline
+    name_end_ptr = strpbrk(name_start_ptr, ";=,[(\n");
+    if (name_end_ptr == NULL) {
+        return NULL;
+    }
+
+    int name_len = name_end_ptr - name_start_ptr;
     if (name_len >= 50 || name_len <= 0) return NULL;
-    
-    strncpy(var_name, type_end, name_len);
+
+    strncpy(var_name, name_start_ptr, name_len);
     var_name[name_len] = '\0';
-    
-    // Trim trailing spaces
+
+    // Trim trailing spaces from the extracted variable name
     int i = name_len - 1;
-    while (i >= 0 && var_name[i] == ' ') {
+    while (i >= 0 && isspace((unsigned char)var_name[i])) {
         var_name[i] = '\0';
         i--;
     }
-    
+    if (strlen(var_name) == 0) return NULL;
+
     return var_name;
 }
 
@@ -201,11 +215,28 @@ int isInitialized(char* line) {
 // Function to extract variable type from declaration
 char* extractVariableType(char* line) {
     static char var_type[20];
-    char* type_end = strchr(line, ' ');
-    if (!type_end) return NULL;
-    int type_len = type_end - line;
-    if (type_len <= 0 || type_len >= 20) return NULL;
-    strncpy(var_type, line, type_len);
+    char* type_start = line;
+
+    // Skip leading whitespace
+    while (*type_start && isspace((unsigned char)*type_start)) {
+        type_start++;
+    }
+    if (*type_start == '\0') { // Empty line or only whitespace
+        return NULL;
+    }
+
+    char* type_end_ptr = type_start;
+    // Find end of the type keyword (the next space or end of string)
+    while (*type_end_ptr && !isspace((unsigned char)*type_end_ptr) && *type_end_ptr != '*') { // also stop if '*' is encountered for pointers like char*
+        type_end_ptr++;
+    }
+
+    int type_len = type_end_ptr - type_start;
+    if (type_len <= 0 || type_len >= 20) {
+        return NULL;
+    }
+
+    strncpy(var_type, type_start, type_len);
     var_type[type_len] = '\0';
     return var_type;
 }
@@ -452,6 +483,8 @@ void displayVariables(VariableInfo* head) {
             current->declaration_line,
             current->is_initialized ? "Yes" : "No",
             current->is_freed ? "Yes" : "No");
+            printf("Variables Detected:\n\n");
+            printf("Name: %s\nType: %s\nLine: %d\tInitialised: %s\tfreed: ", current->name);
         current = current->next;
     }
 }
