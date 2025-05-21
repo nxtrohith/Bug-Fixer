@@ -1,0 +1,24 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+void process_data(int count) {
+    if (count > 5) {
+        printf("Count is %d\n", count) // Missing semicolon
+    // Missing closing brace for if
+
+int main() { // Missing opening brace for function body
+    int* numbers;
+    int i;
+    int total;
+
+    numbers = malloc(sizeof(int) * 10);
+    // 'numbers' might not be checked for NULL
+    // 'numbers' is not freed (memory leak)
+
+    for (i = 0; i < 10; i++ { // Missing closing parenthesis in for loop
+        numbers[i] = i;
+        total += numbers[i]; // 'total' is used uninitialized
+    }
+    printf("Sum: %d\n", total);
+    return 0;
+} // Extra closing brace, or mismatched from main

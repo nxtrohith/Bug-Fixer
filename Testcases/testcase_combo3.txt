@@ -1,0 +1,29 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct {
+    char data[10];
+} Item;
+
+void set_item_data(Item* item_ptr, const char* source) {
+    // No NULL check for item_ptr before dereference
+    strcpy(item_ptr->data, source); // Potential buffer overflow if source is > 9 chars
+}
+
+int main() {
+    Item* my_item = malloc(sizeof(Item));
+    char* description; // Uninitialized pointer
+    int value; // Uninitialized variable
+
+    // set_item_data(my_item, "This is a very long string that will overflow");
+    // printf("Item data: %s\n", my_item->data);
+
+    printf("Value is %d\n", value); // Use of uninitialized 'value'
+    // printf("Description: %s\n", description); // Use of uninitialized 'description'
+
+    free(my_item);
+    free(my_item); // Double free
+
+    return 0;
+}
