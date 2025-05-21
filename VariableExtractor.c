@@ -343,13 +343,13 @@ FunctionInfo* extractAllFunctions(const char* filename) {
                 // End current function
                 if (current_function != NULL) {
                     current_function->end_line = line_number - 1;
-                    addFunctionError(current_function, "Possible missing closing brace");
+                    // addFunctionError(current_function, "Possible missing closing brace");
                 }
                 
                 // Start new function
                 char* func_name = extractFunction(line);
                 if (func_name != NULL && strlen(func_name) > 0) {
-                    printf("Found function: %s at line %d\n", func_name, line_number);
+                    // printf("Found function: %s at line %d\n", func_name, line_number);
                     // addFunction(&functions, func_name, line_number);
                     // current_function = functions;
                     // while (current_function->next != NULL) {
@@ -379,20 +379,20 @@ FunctionInfo* extractAllFunctions(const char* filename) {
                     // Check if line should have a semicolon
                     if (isalnum(line[0]) || strchr(line, '=') != NULL || 
                         strstr(line, "printf") != NULL || strstr(line, "return") != NULL) {
-                        addFunctionError(current_function, "Missing semicolon");
+                        // addFunctionError(current_function, "Missing semicolon");
                     }
                 }
                 
                 // Extra semicolons
                 if (strstr(line, ");") != NULL && strstr(line, ");;") != NULL) {
-                    addFunctionError(current_function, "Extra semicolon");
+                    // addFunctionError(current_function, "Extra semicolon");
                 }
                 
                 // Mismatched if-else brackets
                 if (strstr(line, "if") != NULL && strchr(line, '(') != NULL && 
                     strchr(line, ')') != NULL && strchr(line, ';') != NULL && 
                     strchr(line, '{') == NULL) {
-                    addFunctionError(current_function, "Semicolon after if condition");
+                    // addFunctionError(current_function, "Semicolon after if condition");
                 }
             }
         }
@@ -403,7 +403,7 @@ FunctionInfo* extractAllFunctions(const char* filename) {
     // Handle case where the last function doesn't have a closing brace
     if (in_function && current_function != NULL) {
         current_function->end_line = line_number - 1;
-        addFunctionError(current_function, "Missing closing brace");
+        // addFunctionError(current_function, "Missing closing brace");
     }
     
     fclose(file);
@@ -455,4 +455,61 @@ void displayVariables(VariableInfo* head) {
             current->is_freed ? "Yes" : "No");
         current = current->next;
     }
+}
+
+// Function to extract all variables from a file
+VariableInfo* extractAllVariables(const char* filename) {
+    FILE* file = fopen(filename, "r");
+    if (file == NULL) {
+        printf("Error opening file: %s\n", filename);
+        return NULL;
+    }
+    
+    char line[256];
+    int line_number = 1;
+    VariableInfo* variables = NULL;
+    
+    printf("Scanning file for variables...\n");
+    
+    while (fgets(line, sizeof(line), file)) {
+        // Check for variable declarations
+        if (isVariableDeclaration(line)) {
+            char* var_name = extractVariableFromDeclaration(line);
+            char* var_type = extractVariableType(line);
+            int initialized = isInitialized(line);
+            
+            if (var_name != NULL && var_type != NULL) {
+                addVariable(&variables, var_name, var_type, line_number, initialized);
+            }
+        }
+
+        // Check for memory allocations
+        if (strstr(line, "malloc") || strstr(line, "calloc")) {
+            char* var_name = extractVariableFromAllocation(line);
+            if (var_name != NULL) {
+                // Find if variable already exists
+                VariableInfo* var = findVariable(variables, var_name);
+                if (var == NULL) {
+                    // If not found, add as a pointer type
+                    addVariable(&variables, var_name, "pointer", line_number, 1);
+                }
+            }
+        }
+        
+        // Check for memory deallocations
+        if (strstr(line, "free")) {
+            char* var_name = extractVariableFromFree(line);
+            if (var_name != NULL) {
+                markVariableAsFreed(variables, var_name);
+            }else{
+                printf("Error extracting variable from free() call at line %d\n", line_number);
+            }
+        }
+
+        
+        line_number++;
+    }
+    
+    fclose(file);
+    return variables;
 }

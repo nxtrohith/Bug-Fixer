@@ -18,12 +18,22 @@ void displayNode(int node) {
 }
 
 int main() {
-    int node = 5;
+    // Dynamic allocation
+    int *node = malloc(sizeof(int));
+    if (node == NULL) {
+        printf("Memory allocation failed\n");
+        return 1;
+    }
+    *node = 5;
+
     processData(10);
     int result = calculateSum(3, 4);
-    displayNode(node);
+    displayNode(*node);
     printf("Sum: %d\n", result);
-    free(&node); // Only valid if node was dynamically allocated; otherwise, remove this line
-    // printf("9/0"); // Division by zero removed
+
+    // Free allocated memory
+    free(node);
+    free(rohith);
+
     return 0;
 }

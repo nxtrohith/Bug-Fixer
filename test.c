@@ -290,6 +290,11 @@ void analyse_code(const char* code, token** tokenList) {
     }}
     fseek(file, 0, SEEK_SET); // Reset file pointer to the beginning
     line_num = 1;
+
+    while(fgets(line, sizeof(line), file)!= NULL){
+        //Extracting variables
+
+    }
     fclose(file);
 }
 
@@ -315,12 +320,15 @@ void sort_tokens(token** head){
     }
 }
 
-//Report for Variables.
+//report Variables
 void report_variables(){
-    VariableInfo* VariablesDeclar = NULL;
-    VariablesDeclar = extractVariableFromDeclaration("testcase.txt");
+    VariableInfo* Variables = NULL;
+    Variables = extractAllVariables("testcase.txt");
     printf("Extracting variables from testcase.txt...\n");
-    
+    if (Variables == NULL) {
+        printf("Debug: extractAllVariables returned NULL\n");
+    }
+    displayVariables(Variables);
 }
 
 //Report for the functions.
@@ -351,7 +359,8 @@ int main() {
 
     //Variables report
 
-
+    //variables report
+    report_variables();
     //Functions report
     report_functions();
 
