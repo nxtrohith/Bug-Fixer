@@ -19,7 +19,7 @@ void displayNode(int node) {
 
 int main() {
     // Dynamic allocation
-    int *node = malloc(sizeof(int));
+    int* node = malloc(sizeof(int));
     if (node == NULL) {
         printf("Memory allocation failed\n");
         return 1;

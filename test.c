@@ -11,7 +11,6 @@ typedef struct token{
     struct token *next;
 } token;
 
-//Function to create a new token into the list
 token* CreateToken(char* type, int line_num, char* description) {
     token* newtoken = (token*)malloc(sizeof(token));
     if(newtoken == NULL) {
@@ -27,7 +26,6 @@ token* CreateToken(char* type, int line_num, char* description) {
     return newtoken;
 }
 
-//Function to add a new token to the list
 void AddToken(token** head, char* type, int line_num, char* descripton) {
     token* newtoken = CreateToken(type, line_num, descripton);
     if(*head == NULL) {
@@ -43,7 +41,6 @@ void AddToken(token** head, char* type, int line_num, char* descripton) {
     }
 }
 
-//Function to print the list of tokens
 void ShowTokens(token* head) {
     if(head == NULL) {
         printf("No tokens found.\n");
@@ -60,7 +57,6 @@ void ShowTokens(token* head) {
     }
 }
 
-//Funtion to free the memory allocated for the list
 void delete_tokens(token* head){
     token* current = head;
     token* next;
@@ -71,7 +67,6 @@ void delete_tokens(token* head){
     }
 }
 
-//Function to check for bugs and create a list of tokens
 void analyse_code(const char* code, token** tokenList) {
     FILE* file = fopen(code, "r");
     if(file == NULL){
@@ -83,14 +78,11 @@ void analyse_code(const char* code, token** tokenList) {
     int line_num = 1;
 
     
-
 {    // Stack to track opening brackets
     char stack[100];
     int top = -1;
     int bracket_positions[100]; // Store line numbers of opening brackets
-    //Loop only for Brakcet check.
     while(fgets(line, sizeof(line), file) != NULL){
-        // Check each character in the line
         for(int i = 0; i < strlen(line); i++) {
             // Check for opening brackets
             if(line[i] == '(' || line[i] == '{' || line[i] == '[') {
@@ -145,7 +137,6 @@ void analyse_code(const char* code, token** tokenList) {
     // Track if we're inside a struct definition
     int in_struct_definition = 0;
 
-    //Check for Missing semicolons(;)
     while(fgets(line, sizeof(line), file)!= NULL){
         //writing the exception cases for missing semicolons which are made to beautify the code or like whitelines and comments.
         if(line[0] == '\n' || (line[0] == '/' && line[1] == '/') || (line[0] == '/' && line[1] == '*') || (line[0] == '*' && line[1] == '/')){
@@ -167,7 +158,6 @@ void analyse_code(const char* code, token** tokenList) {
             in_struct_definition = 0;
         }
 
-        //check for missing semicolons in statements
         {int len = strlen(line);
         int should_have_semicolon = 0;
 
@@ -226,9 +216,9 @@ void analyse_code(const char* code, token** tokenList) {
             //exclude lines that shouldnt end with a semicolon
             if(strstr(line, "{") || strstr(line, "}") || 
             strstr(line, "if") || strstr(line, "else") || 
-            strstr(line, "for") || strstr(line, "while") || 
+            (strstr(line, "for") && strchr(line, '(')) || (strstr(line, "while") && strchr(line, '(')) || // More specific for loops/whiles
             strstr(line, "#include") || strstr(line, "#define")) {
-             should_have_semicolon = 0; // No semicolon needed
+             should_have_semicolon = 0;
          } else {
              should_have_semicolon = 1; // Semicolon needed
          }
@@ -279,8 +269,7 @@ void analyse_code(const char* code, token** tokenList) {
     }}
     fseek(file, 0, SEEK_SET); // Reset file pointer to the beginning
     line_num = 1;
-    {//Division by zero check
-    while(fgets(line, sizeof(line), file)!= NULL){
+    {while(fgets(line, sizeof(line), file)!= NULL){
         if(strstr(line, "/0") || strstr(line, "%0") || strstr(line, "/ 0") || strstr(line, "% 0") || strstr(line, "0 %") ||strstr(line, "0%")) {
             char description[100];
             sprintf(description, "Division by zero at line %d", line_num);
@@ -333,25 +322,21 @@ void analyse_code(const char* code, token** tokenList) {
             sprintf(description, "No reference for free at line %d", line_num);
             AddToken(tokenList, "free error", line_num, description);
         }
-        //memoryallocation
         if(strstr(line, "malloc")!= NULL && (strstr(line, "(") == NULL || strstr(line, ")") == NULL)){
             char description[100];
             sprintf(description, "No reference for malloc at line %d", line_num);
             AddToken(tokenList, "malloc error", line_num, description);
         }
-        //memoryallocation
         if(strstr(line, "calloc")!= NULL && (strstr(line, "(") == NULL || strstr(line, ")") == NULL)){
             char description[100];
             sprintf(description, "No reference for calloc at line %d", line_num);
             AddToken(tokenList, "calloc error", line_num, description);
         }
-        //memoryallocation
         if(strstr(line, "realloc")!= NULL && (strstr(line, "(") == NULL || strstr(line, ")") == NULL)){
             char description[100];
             sprintf(description, "No reference for realloc at line %d", line_num);
             AddToken(tokenList, "realloc error", line_num, description);
         }
-        //memoryallocation
         if(strstr(line, "exit")!= NULL && (strstr(line, "(") == NULL || strstr(line, ")") == NULL)){
             char description[100];
             sprintf(description, "No reference for exit at line %d", line_num);
@@ -470,7 +455,6 @@ void analyse_code(const char* code, token** tokenList) {
     fclose(file);
 }
 
-//report Variables
 void report_variables(){
     VariableInfo* Variables = NULL;
     Variables = extractAllVariables("testcase.txt");
@@ -479,10 +463,9 @@ void report_variables(){
         printf("Debug: extractAllVariables returned NULL\n");
     }
     displayVariables(Variables);
-    memory_leaks(Variables);
+    // memory_leaks(Variables);
 }
 
-//Report for the functions.
 void report_functions(){
     FunctionInfo* Funcs = NULL;
     Funcs = extractAllFunctions("testcase.txt");
@@ -495,22 +478,16 @@ void report_functions(){
 }
 
 int main() {
-    char testcase[90000];
     token* tokenList = NULL;
-    VariableInfo* Variables = NULL;
 
     printf("====Bug-Detection in C using C====\n");
     analyse_code("testcase.txt", &tokenList);
     
-    //variables report
     report_variables();
-    //Functions report
     report_functions();
-
 
     ShowTokens(tokenList);
     delete_tokens(tokenList);
-
 
     return 0;
 }

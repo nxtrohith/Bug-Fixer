@@ -5,11 +5,12 @@
 
 // Structure to store variable information
 typedef struct VariableInfo {
-    char name[50];           // Variable name
-    char type[20];           // Variable type (int, char, etc.)
-    int declaration_line;    // Line where variable was declared
-    int is_initialized;      // Whether variable was initialized at declaration
-    int is_freed;            // Whether variable has been freed (for pointers)
+    char name[50];
+    char type[20];
+    int declaration_line; 
+    int is_initialized;
+    int is_freed;
+    int freed_line;
     struct VariableInfo* next;
 } VariableInfo;
 
@@ -21,7 +22,6 @@ typedef struct FunctionInfo {
     struct FunctionInfo* next;
 } FunctionInfo;
 
-// Function to create a new variable info node
 VariableInfo* createVariableInfo(char* name, char* type, int line, int initialized) {
     VariableInfo* newVar = (VariableInfo*)malloc(sizeof(VariableInfo));
     if (newVar == NULL) {
@@ -33,13 +33,12 @@ VariableInfo* createVariableInfo(char* name, char* type, int line, int initializ
     strcpy(newVar->type, type);
     newVar->declaration_line = line;
     newVar->is_initialized = initialized;
-    newVar->is_freed = 0;
+    newVar->is_freed = 0; // Variable is not freed upon creation
+    newVar->freed_line = 0; // Line number where freed, 0 if not freed
     newVar->next = NULL;
     
     return newVar;
 }
-
-// Function to add a variable to the tracking list
 void addVariable(VariableInfo** head, char* name, char* type, int line, int initialized) {
     VariableInfo* newVar = createVariableInfo(name, type, line, initialized);
     
@@ -56,7 +55,6 @@ void addVariable(VariableInfo** head, char* name, char* type, int line, int init
     current->next = newVar;
 }
 
-// Function to find a variable in the tracking list
 VariableInfo* findVariable(VariableInfo* head, char* name) {
     VariableInfo* current = head;
     
@@ -70,14 +68,75 @@ VariableInfo* findVariable(VariableInfo* head, char* name) {
     return NULL;
 }
 
-// Function to mark a variable as freed
-void markVariableAsFreed(VariableInfo* head, char* name) {
+// Marks a variable as freed and detects double free attempts.
+void markVariableAsFreed(VariableInfo* head, char* name, int current_line_number) {
     VariableInfo* var = findVariable(head, name);
     if (var != NULL) {
-        var->is_freed = 1;
+        // Only apply free logic if we are confident it's a pointer that was dynamically allocated.
+        // The "pointer" type is set when malloc/calloc is detected.
+        if (strcmp(var->type, "pointer") == 0) {
+            if (var->is_freed) {
+                printf("Error: Double free detected for variable '%s' at line %d (previously freed at line %d).\n",
+                       var->name, current_line_number, var->freed_line);
+            } else {
+                var->is_freed = 1;
+                var->freed_line = current_line_number; // Record line where it was freed
+            }
+        }
+    } else {
+         printf("Warning: Attempt to free untracked variable '%s' at line %d.\n", name, current_line_number);
     }
 }
-// Function to extract variable name from a declaration
+
+void checkForUseAfterFree(VariableInfo* head, const char* line_content, int current_line_number) {
+    VariableInfo* current_var = head;
+    while (current_var != NULL) {
+        // Check only if the variable is a pointer and has been freed
+        if (current_var->is_freed && strcmp(current_var->type, "pointer") == 0) {
+            char pattern_dereference[55];
+            sprintf(pattern_dereference, "*%s", current_var->name);
+            
+            const char* occurrence_deref = strstr(line_content, pattern_dereference);
+            if (occurrence_deref) {
+                char char_after_match = *(occurrence_deref + strlen(pattern_dereference));
+                if (!isalnum((unsigned char)char_after_match) && char_after_match != '_') {
+                    char free_call_on_deref[60];
+                    sprintf(free_call_on_deref, "free(%s)", pattern_dereference); // e.g., free(*ptr)
+                     if (strstr(line_content, free_call_on_deref) == NULL) {
+                         printf("Error: Potential use-after-free. Variable '%s' (freed at line %d) seems to be dereferenced at line %d.\n",
+                               current_var->name, current_var->freed_line, current_line_number);
+                     }
+                }
+            }
+            // Heuristic 2: Check for "varname->" (member access)
+            char pattern_arrow[55];
+            sprintf(pattern_arrow, "%s->", current_var->name);
+            if (strstr(line_content, pattern_arrow) != NULL) {
+                 // Avoid reporting UAF if this line is where it was just freed (if free is like "free(ptr->member)") - less common
+                 printf("Error: Potential use-after-free. Variable '%s' (freed at line %d) seems to be used with '->' operator at line %d.\n",
+                       current_var->name, current_var->freed_line, current_line_number);
+            }
+            char* temp_line = strdup(line_content); // Work on a copy for strtok
+            if (temp_line) {
+                char* token = strtok(temp_line, " \t\n\r(){}[];,=.+-/%*&|!<>");
+                while (token != NULL) {
+                    if (strcmp(token, current_var->name) == 0) {
+                        char free_call_pattern[60];
+                        sprintf(free_call_pattern, "free(%s)", current_var->name);
+                        if (strstr(line_content, free_call_pattern) == NULL && current_line_number > current_var->declaration_line) {
+                             printf("Error: Potential use-after-free. Variable '%s' (freed at line %d) seems to be used as a token at line %d.\n",
+                                   current_var->name, current_var->freed_line, current_line_number);
+                            break; // Found use, no need to check other tokens for this var on this line
+                        }
+                    }
+                    token = strtok(NULL, " \t\n\r(){}[];,=.+-/%*&|!<>");
+                }
+                free(temp_line);
+            }
+        }
+        current_var = current_var->next;
+    }
+}
 char* extractVariableFromDeclaration(char* line) {
     static char var_name[50];
     char* current_pos = line;
@@ -125,7 +184,6 @@ char* extractVariableFromDeclaration(char* line) {
     return var_name;
 }
 
-// Function to extract variable name from malloc/calloc
 char* extractVariableFromAllocation(char* line) {
     static char var_name[50];
     char* equals_pos = NULL;
@@ -156,7 +214,6 @@ char* extractVariableFromAllocation(char* line) {
     return var_name;
 }
 
-// Function to extract variable name from free() call
 char* extractVariableFromFree(char* line) {
     static char var_name[50];
     char* open_paren = NULL;
@@ -195,7 +252,6 @@ char* extractVariableFromFree(char* line) {
     return var_name;
 }
 
-// Function to determine if a line contains a variable declaration
 int isVariableDeclaration(char* line) {
     // Check for common C types
     return (strstr(line, "int ") != NULL || 
@@ -207,12 +263,10 @@ int isVariableDeclaration(char* line) {
             strstr(line, "struct ") != NULL);
 }
 
-// Function to determine if a variable is initialized in its declaration
 int isInitialized(char* line) {
     return (strchr(line, '=') != NULL);
 }
 
-// Function to extract variable type from declaration
 char* extractVariableType(char* line) {
     static char var_type[20];
     char* type_start = line;
@@ -275,20 +329,6 @@ void addFunction(FunctionInfo** head, char* name, int start_line) {
     current->next = newFunc;
 }
 
-// Function to add error description to a function
-// REMOVED: void addFunctionError(FunctionInfo* func, const char* error) {
-//     func->has_errors = 1;
-//     
-//     // If there's already an error, append to it
-//     if (func->error_desc[0] != '\0') {
-//         strcat(func->error_desc, "; ");
-//         strcat(func->error_desc, error);
-//     } else {
-//         strcpy(func->error_desc, error);
-//     }
-// }
-
-// Function to extract all functions from a file
 FunctionInfo* extractAllFunctions(const char* filename) {
     FILE* file = fopen(filename, "r");
     if (file == NULL) {
@@ -302,9 +342,6 @@ FunctionInfo* extractAllFunctions(const char* filename) {
     FunctionInfo* current_function = NULL;
     int brace_count = 0;
     int in_function = 0;
-    
-    // Debug output
-    printf("Scanning file for functions...\n");
     
     while (fgets(line, sizeof(line), file)) {
         // More lenient function detection
@@ -320,7 +357,6 @@ FunctionInfo* extractAllFunctions(const char* filename) {
             
             char* func_name = extractFunction(line);
             if (func_name != NULL && strlen(func_name) > 0) {
-                // printf("Found function: %s at line %d\n", func_name, line_number);
                 addFunction(&functions, func_name, line_number);
                 current_function = functions;
                 while (current_function->next != NULL) {
@@ -372,19 +408,12 @@ FunctionInfo* extractAllFunctions(const char* filename) {
                 
                 // End current function
                 if (current_function != NULL) {
-                    current_function->end_line = line_number - 1;
-                    // addFunctionError(current_function, "Possible missing closing brace");
+                    current_function->end_line = line_number - 1; // End before the new function starts
                 }
                 
                 // Start new function
                 char* func_name = extractFunction(line);
                 if (func_name != NULL && strlen(func_name) > 0) {
-                    // printf("Found function: %s at line %d\n", func_name, line_number);
-                    // addFunction(&functions, func_name, line_number);
-                    // current_function = functions;
-                    // while (current_function->next != NULL) {
-                    //     current_function = current_function->next;
-                    // }
                     brace_count = 0;
                     
                     // Check for opening brace on same line
@@ -396,7 +425,7 @@ FunctionInfo* extractAllFunctions(const char* filename) {
             
             // Check for common syntax errors
             if (current_function != NULL) {
-                // Missing semicolons
+                // Basic check for missing semicolons (can be expanded)
                 if (strstr(line, "for") == NULL && // Ignore for loop conditions
                     strstr(line, "if") == NULL && // Ignore if conditions
                     strstr(line, "while") == NULL && // Ignore while conditions
@@ -409,20 +438,19 @@ FunctionInfo* extractAllFunctions(const char* filename) {
                     // Check if line should have a semicolon
                     if (isalnum(line[0]) || strchr(line, '=') != NULL || 
                         strstr(line, "printf") != NULL || strstr(line, "return") != NULL) {
-                        // addFunctionError(current_function, "Missing semicolon");
+                        // Potential missing semicolon (further analysis needed for accuracy)
                     }
                 }
                 
                 // Extra semicolons
                 if (strstr(line, ");") != NULL && strstr(line, ");;") != NULL) {
-                    // addFunctionError(current_function, "Extra semicolon");
+                    // Potential extra semicolon
                 }
                 
-                // Mismatched if-else brackets
                 if (strstr(line, "if") != NULL && strchr(line, '(') != NULL && 
                     strchr(line, ')') != NULL && strchr(line, ';') != NULL && 
                     strchr(line, '{') == NULL) {
-                    // addFunctionError(current_function, "Semicolon after if condition");
+                    // Semicolon after if condition likely an error
                 }
             }
         }
@@ -433,14 +461,12 @@ FunctionInfo* extractAllFunctions(const char* filename) {
     // Handle case where the last function doesn't have a closing brace
     if (in_function && current_function != NULL) {
         current_function->end_line = line_number - 1;
-        // addFunctionError(current_function, "Missing closing brace");
     }
     
     fclose(file);
     return functions;
 }
 
-// Function to display all extracted functions and their errors
 void displayFunctions(FunctionInfo* head) {
     if (head == NULL) {
         printf("No functions found!\n");
@@ -457,7 +483,6 @@ void displayFunctions(FunctionInfo* head) {
     }
 }
 
-// Function to free the memory allocated for the function list
 void freeFunctionList(FunctionInfo* head) {
     FunctionInfo* current = head;
     FunctionInfo* next;
@@ -489,13 +514,12 @@ void memory_leaks(VariableInfo* head) {
     VariableInfo* current = head;
     printf("Memory Leaks Detected:\n\n");
     while (current!= NULL) {
-        if (!current->is_freed && strcmp(current->type, "pointer") == 0) {
+        if (!current->is_freed && strstr(current->type, "pointer") != NULL) {
             printf("Memory leak detected for variable '%s' on line %d.\n", current->name, current->declaration_line);
         }
         current = current->next;
     }
 }
-// Function to extract all variables from a file
 VariableInfo* extractAllVariables(const char* filename) {
     FILE* file = fopen(filename, "r");
     if (file == NULL) {
@@ -507,43 +531,56 @@ VariableInfo* extractAllVariables(const char* filename) {
     int line_number = 1;
     VariableInfo* variables = NULL;
     
-    printf("Scanning file for variables...\n");
+    printf("Scanning file for variables and memory errors...\n");
     
     while (fgets(line, sizeof(line), file)) {
-        // Check for variable declarations
-        if (isVariableDeclaration(line)) {
-            char* var_name = extractVariableFromDeclaration(line);
-            char* var_type = extractVariableType(line);
-            int initialized = isInitialized(line);
+        char current_line_copy[256];
+        strncpy(current_line_copy, line, sizeof(current_line_copy) - 1);
+        current_line_copy[sizeof(current_line_copy) - 1] = '\0'; // Ensure null termination
+
+        // 1. Check for Use-After-Free for variables freed on *previous* lines
+        checkForUseAfterFree(variables, current_line_copy, line_number);
+
+        // 2. Check for variable declarations
+        if (isVariableDeclaration(current_line_copy)) {
+            char* var_name = extractVariableFromDeclaration(current_line_copy);
+            char* var_type = extractVariableType(current_line_copy);
+            int initialized = isInitialized(current_line_copy);
             
             if (var_name != NULL && var_type != NULL) {
-                addVariable(&variables, var_name, var_type, line_number, initialized);
+                // Only add if not already found (e.g. from a malloc earlier)
+                // and ensure it's not a re-declaration error (advanced check, not done here)
+                if (findVariable(variables, var_name) == NULL) {
+                     addVariable(&variables, var_name, var_type, line_number, initialized);
+                }
             }
         }
 
-        // Check for memory allocations
-        if (strstr(line, "malloc") || strstr(line, "calloc")) {
-            char* var_name = extractVariableFromAllocation(line);
+        // 3. Check for memory allocations (malloc, calloc)
+        if (strstr(current_line_copy, "malloc") || strstr(current_line_copy, "calloc")) {
+            char* var_name = extractVariableFromAllocation(current_line_copy);
             if (var_name != NULL) {
-                // Find if variable already exists
                 VariableInfo* var = findVariable(variables, var_name);
                 if (var == NULL) {
-                    // If not found, add as a pointer type
-                    addVariable(&variables, var_name, "pointer", line_number, 1);
+                    addVariable(&variables, var_name, "pointer", line_number, 1); // Allocated, so initialized
+                } else {
+                    // Variable already declared, now it's being (re)assigned a malloc'd pointer
+                    strcpy(var->type, "pointer"); // Ensure type is "pointer"
+                    var->is_initialized = 1;
+                    var->is_freed = 0; // If it was freed and is being reassigned, it's no longer freed
+                    var->freed_line = 0;
                 }
             }
         }
         
-        // Check for memory deallocations
-        if (strstr(line, "free")) {
-            char* var_name = extractVariableFromFree(line);
+        // 4. Check for memory deallocations (free) and detect double free
+        if (strstr(current_line_copy, "free(")) { // More specific than just "free"
+            char* var_name = extractVariableFromFree(current_line_copy);
             if (var_name != NULL) {
-                markVariableAsFreed(variables, var_name);
-            }else{
-                printf("Error extracting variable from free() call at line %d\n", line_number);
+                markVariableAsFreed(variables, var_name, line_number); // Pass line_number
+            } else {
             }
         }
-
         
         line_number++;
     }
