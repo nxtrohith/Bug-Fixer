@@ -92,7 +92,9 @@ void detectInfiniteRecursion(const char* filename) {
 
     while (fgets(line, sizeof(line), file)) {
         // Skip comment lines
-        if (strstr(line, "//") == line) continue;
+        if (strstr(line, "//") == line) {
+        file_line_num++;
+        continue;}
 
         // Detect function definitions
         char name[MAX_NAME_LEN];
