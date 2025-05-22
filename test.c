@@ -3,6 +3,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "VariableExtractor.c"
+#include "infiniterecursion.c"
 
 typedef struct token{
     char type[50];
@@ -489,5 +490,7 @@ int main() {
     ShowTokens(tokenList);
     delete_tokens(tokenList);
 
+    printf("Infinite Recurssions found: \n\n");
+    detectInfiniteRecursion("testcase.txt");
     return 0;
 }

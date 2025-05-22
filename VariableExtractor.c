@@ -532,8 +532,6 @@ VariableInfo* extractAllVariables(const char* filename) {
     int line_number = 1;
     VariableInfo* variables = NULL;
     
-    printf("Scanning file for variables and memory errors...\n");
-    
     while (fgets(line, sizeof(line), file)) {
         char current_line_copy[256];
         strncpy(current_line_copy, line, sizeof(current_line_copy) - 1);

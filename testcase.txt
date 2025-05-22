@@ -6,6 +6,7 @@ void processData(int x) {
     for(i = 0; i < x; i++) {
         printf("%d\n", i);
     }
+    processData(i);
 }
 
 int calculateSum(int a, int b) {
