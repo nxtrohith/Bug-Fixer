@@ -2,18 +2,47 @@
 #include <stdlib.h>
 #include <string.h>
 
-int base(int x){
-    printf("We are a Team");
-    return base;
+void test_malloc_leak() {
+    int *ptr = (int*)malloc(sizeof(int));
+    *ptr = 10;
 }
 
-int main(){
-    printf("This is a testcase")
-    int number = 90;
+void test_double_free() {
+    int *ptr = (int*)malloc(sizeof(int));
+    free(ptr);
+    free(ptr);
+}
 
-    if(number == 90){
-        printf("Running");
-    
-    
-    return 0;;
+void test_use_after_free() {
+    int *ptr1 = (int*)malloc(sizeof(int));
+    free(ptr1);
+    *ptr1 = 20;
+}
+
+void test_buffer_overflow() {
+    int *arr = (int*)malloc(2 * sizeof(int));
+    arr[2] = 30;
+}
+
+void test_null_malloc() {
+    int *ptr2 = (int*)malloc(-1);
+    *ptr2 = 40;
+}
+
+int main() {
+    test_malloc_leak();
+    test_double_free();
+    test_use_after_free();
+    test_buffer_overflow();
+    test_null_malloc();
+
+    printf("Testing our project")
+    printf("Successfully implemented");
+    int x = 10;
+    if(x == 10){
+        printf("DRSB");;
+    }else{
+        printf("Nothing"
+    }
+    return 0;
 }

@@ -2,11 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-
-#ifdef _WIN32
-#define strtok_r strtok_s
-#endif
-
 #include "VariableExtractor.c"
 #include "infiniterecursion.c"
 
@@ -313,14 +308,14 @@ void analyse_code(const char* code, token** tokenList) {
           }
         }
 
-        // Check for null pointer dereference
-        if (strstr(line, "->" ) != NULL || strstr(line, "*") != NULL) {
-            if (strstr(line, "NULL") == NULL && strstr(line, "!= NULL") == NULL) {
-                char description[100];
-                sprintf(description, "Possible null pointer dereference at line %d", line_num);
-                AddToken(tokenList, "Null Pointer", line_num, description);
-            }
-        }
+        // // Check for null pointer dereference
+        // if (strstr(line, "->" ) != NULL || strstr(line, "*") != NULL) {
+        //     if (strstr(line, "NULL") == NULL && strstr(line, "!= NULL") == NULL) {
+        //         char description[100];
+        //         sprintf(description, "Possible null pointer dereference at line %d", line_num);
+        //         AddToken(tokenList, "Null Pointer", line_num, description);
+        //     }
+        // }
 
         // check for free block without arguments
         if(strstr(line, "free") != NULL && (strstr(line, "(") == NULL || strstr(line, ")") == NULL)){
@@ -351,70 +346,6 @@ void analyse_code(const char* code, token** tokenList) {
 
         line_num++;
 
-    }
-    fseek(file, 0, SEEK_SET);
-    line_num = 1;
-    const char* keywords[] = {
-        "auto", "break", "case", "char", "const", "continue", "default", "do",
-        "double", "else", "enum", "extern", "float", "for", "goto", "if",
-        "int", "long", "register", "return", "short", "signed", "sizeof", "static",
-        "struct", "switch", "typedef", "union", "unsigned", "void", "volatile", "while"
-    };
-    int num_keywords = sizeof(keywords) / sizeof(keywords[0]);
-    char parse_line_keywords[256]; 
-
-    while (fgets(line, sizeof(line), file) != NULL) {
-        strncpy(parse_line_keywords, line, sizeof(parse_line_keywords) -1);
-        parse_line_keywords[sizeof(parse_line_keywords)-1] = '\0';
-
-        char* trimmed_line_ptr_keywords = parse_line_keywords;
-        while(isspace((unsigned char)*trimmed_line_ptr_keywords)) trimmed_line_ptr_keywords++;
-        
-        if (*trimmed_line_ptr_keywords == '\0' || *trimmed_line_ptr_keywords == '#' ||
-            strncmp(trimmed_line_ptr_keywords, "//", 2) == 0 || strncmp(trimmed_line_ptr_keywords, "/*", 2) == 0) {
-            line_num++;
-            continue;
-        }
-        
-        char *token_context;
-        char *current_token = strtok_r(trimmed_line_ptr_keywords, " \t\n\r();,{[]}*=", &token_context);
-        int is_declaration_context = 0;
-
-        while(current_token != NULL) {
-            // Check if current_token is a type keyword
-            if (strcmp(current_token, "int") == 0 || strcmp(current_token, "char") == 0 ||
-                strcmp(current_token, "void") == 0 || strcmp(current_token, "float") == 0 ||
-                strcmp(current_token, "double") == 0 || strcmp(current_token, "long") == 0 ||
-                strcmp(current_token, "short") == 0 || strcmp(current_token, "signed") == 0 ||
-                strcmp(current_token, "unsigned") == 0 || strcmp(current_token, "struct") == 0 ||
-                strcmp(current_token, "union") == 0 || strcmp(current_token, "enum") == 0 ||
-                strcmp(current_token, "typedef") == 0 || strcmp(current_token, "const") == 0 ||
-                strcmp(current_token, "volatile") == 0) {
-                 is_declaration_context = 1;
-            } else {
-                 // If in a declaration context (a type keyword was just seen)
-                 // and the current token is a keyword (but not a type itself)
-                 if (is_declaration_context) {
-                    for (int k = 0; k < num_keywords; k++) {
-                        if (strcmp(current_token, keywords[k]) == 0) {
-                            char *keyword_occurrence_in_original = strstr(line, current_token);
-                            if (keyword_occurrence_in_original) {
-                                char char_after_keyword = *(keyword_occurrence_in_original + strlen(current_token));
-                                if (!(isalnum((unsigned char)char_after_keyword) || char_after_keyword == '_')) {
-                                    char description[150];
-                                    sprintf(description, "Keyword '%s' likely used as an identifier in declaration context", current_token);
-                                    AddToken(tokenList, "Syntax Error", line_num, description);
-                                }
-                            }
-                            break; 
-                        }
-                    }
-                 }
-                 is_declaration_context = 0; // Reset context if current token is not a type
-            }
-            current_token = strtok_r(NULL, " \t\n\r();,{[]}*=", &token_context);
-        }
-        line_num++;
     }
     fseek(file, 0, SEEK_SET);
     line_num = 1;
@@ -556,11 +487,12 @@ int main() {
     
     report_variables();
     report_functions();
+    
+    printf("Infinite Recurssions found: \n\n");
+    detectInfiniteRecursion("testcase.txt");
 
     ShowTokens(tokenList);
     delete_tokens(tokenList);
 
-    printf("Infinite Recurssions found: \n\n");
-    detectInfiniteRecursion("testcase.txt");
     return 0;
 }
