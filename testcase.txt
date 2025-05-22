@@ -1,42 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-void processData(int x) {
-    int i;
-    for(i = 0; i < x; i++) {
-        printf("%d\n", i);
-    }
-    processData(i);
+int base(int x){
+    printf("We are a Team");
+    return base;
 }
 
-int calculateSum(int a, int b) {
-    int sum = a + b;
-    return sum;
-}
+int main(){
+    printf("This is a testcase")
+    int number = 90;
 
-void displayNode(int node) {
-    printf("Node: %d\n", node);
-}
-
-int main() {
-    // Dynamic allocation
-    int* node = malloc(sizeof(int));
-    if (node == NULL) {
-        printf("Memory allocation failed\n");
-        return 1;
-    }
-    *node = 5;
-    strcpy("rohith", line);
-    strcpy
-
-    processData(10);
-    int result = calculateSum(3, 4);
-    displayNode(*node);
-    printf("Sum: %d\n", result);
-    printf("%d", numberro)
-    // Free allocated memory
-    free(node);
-    free(rohith);
-
-    return 0;
+    if(number == 90){
+        printf("Running");
+    
+    
+    return 0;;
 }
