@@ -3,18 +3,16 @@
 #include <string.h>
 #include <ctype.h>
 
-// Structure to store variable information
 typedef struct VariableInfo {
     char name[50];
     char type[20];
     int declaration_line; 
     int is_initialized;
     int is_freed;
-    int freed_line;
+    int freed_line; // Line number where freed, 0 if not freed
     struct VariableInfo* next;
 } VariableInfo;
 
-// Structure to store function information
 typedef struct FunctionInfo {
     char name[50];           // Function name
     int start_line;          // Line where function starts
@@ -33,8 +31,8 @@ VariableInfo* createVariableInfo(char* name, char* type, int line, int initializ
     strcpy(newVar->type, type);
     newVar->declaration_line = line;
     newVar->is_initialized = initialized;
-    newVar->is_freed = 0; // Variable is not freed upon creation
-    newVar->freed_line = 0; // Line number where freed, 0 if not freed
+    newVar->is_freed = 0;
+    newVar->freed_line = 0;
     newVar->next = NULL;
     
     return newVar;
@@ -138,25 +136,21 @@ char* extractVariableFromDeclaration(char* line) {
     static char var_name[50];
     char* current_pos = line;
 
-    // 1. Skip leading whitespace before the type
     while (*current_pos && isspace((unsigned char)*current_pos)) {
         current_pos++;
     }
-    if (*current_pos == '\0') return NULL; // Line is empty or all whitespace
+    if (*current_pos == '\0') return NULL;
 
-    // 2. Skip the type keyword
     char* type_keyword_end = current_pos;
     while (*type_keyword_end && !isspace((unsigned char)*type_keyword_end)) {
         type_keyword_end++;
     }
-    // 3. Skip spaces between the type and the variable name
     char* name_start_ptr = type_keyword_end;
     while (*name_start_ptr && isspace((unsigned char)*name_start_ptr)) {
         name_start_ptr++;
     }
     if (*name_start_ptr == '\0' || *name_start_ptr == ';') return NULL; // No variable name found (e.g., "int ;")
 
-    // 4. Find the end of the variable name
     char* name_end_ptr = name_start_ptr;
     // Variable name ends at ';', '=', ',', '[', '(', or newline
     name_end_ptr = strpbrk(name_start_ptr, ";=,[(\n");
@@ -185,23 +179,19 @@ char* extractVariableFromAllocation(char* line) {
     static char var_name[50];
     char* equals_pos = NULL;
     char* name_end = NULL;
-    
-    // Find assignment operator
+
     equals_pos = strchr(line, '=');
     if (equals_pos == NULL) return NULL;
-    
+
     // Go backwards from equals to find variable name
     char* name_start = equals_pos - 1;
-    
-    // Skip spaces before equals
     while (name_start > line && *name_start == ' ') name_start--;
-    
+
     // Find start of variable name (after type or space)
     char* name_end_rev = name_start;
     while (name_end_rev > line && 
            (isalnum(*name_end_rev) || *name_end_rev == '_')) name_end_rev--;
-    
-    // Extract the variable name
+
     int name_len = name_start - name_end_rev;
     if (name_len >= 50 || name_len <= 0) return NULL;
     
@@ -215,20 +205,17 @@ char* extractVariableFromFree(char* line) {
     static char var_name[50];
     char* open_paren = NULL;
     char* close_paren = NULL;
-    
-    // Find opening parenthesis after "free"
+
     open_paren = strstr(line, "free(");
     if (open_paren == NULL) return NULL;
-    open_paren += 5; // Move past "free("
-    
-    // Find closing parenthesis
+    open_paren += 5;
+
     close_paren = strchr(open_paren, ')');
     if (close_paren == NULL) return NULL;
-    
-    // Extract the variable name
+
     int name_len = close_paren - open_paren;
     if (name_len >= 50 || name_len <= 0) return NULL;
-    
+
     strncpy(var_name, open_paren, name_len);
     var_name[name_len] = '\0';
     
@@ -239,7 +226,7 @@ char* extractVariableFromFree(char* line) {
     if (i > 0) {
         memmove(var_name, var_name + i, name_len - i + 1);
     }
-    
+
     i = strlen(var_name) - 1;
     while (i >= 0 && var_name[i] == ' ') {
         var_name[i] = '\0';
@@ -268,11 +255,10 @@ char* extractVariableType(char* line) {
     static char var_type[20];
     char* type_start = line;
 
-    // Skip leading whitespace
     while (*type_start && isspace((unsigned char)*type_start)) {
         type_start++;
     }
-    if (*type_start == '\0') { // Empty line or only whitespace
+    if (*type_start == '\0') {
         return NULL;
     }
 
@@ -366,14 +352,12 @@ FunctionInfo* extractAllFunctions(const char* filename) {
                 }
                 in_function = 1;
                 brace_count = 0; // Reset brace count for new function
-                
-                // Check for opening brace on same line
+
                 if (strchr(line, '{') != NULL) {
                     brace_count++;
                 }
             }
         }
-        
         // Count braces to track function body
         if (in_function) {
             // Count opening braces
@@ -382,8 +366,7 @@ FunctionInfo* extractAllFunctions(const char* filename) {
                 brace_count++;
                 ptr++;
             }
-            
-            // Count closing braces
+
             ptr = line;
             while ((ptr = strchr(ptr, '}')) != NULL) {
                 brace_count--;
@@ -395,7 +378,7 @@ FunctionInfo* extractAllFunctions(const char* filename) {
                     in_function = 0;
                 }
             }
-            
+
             // Safety check: if we reach a new function signature while still in a function,
             // force end the current function and start a new one
             if (strchr(line, '(') != NULL && 
@@ -407,24 +390,20 @@ FunctionInfo* extractAllFunctions(const char* filename) {
                  strstr(line, "char ") || strstr(line, "float ") || 
                  strstr(line, "double ") || strstr(line, "long ") || 
                  strstr(line, "struct "))) {
-                
-                // End current function
+
                 if (current_function != NULL) {
                     current_function->end_line = line_number - 1; // End before the new function starts
                 }
-                
-                // Start new function
+
                 char* func_name = extractFunction(line);
                 if (func_name != NULL && strlen(func_name) > 0) {
                     brace_count = 0;
-                    
-                    // Check for opening brace on same line
+
                     if (strchr(line, '{') != NULL) {
                         brace_count++;
                     }
                 }
             }
-            
             // Check for common syntax errors
             if (current_function != NULL) {
                 // Basic check for missing semicolons (can be expanded)
@@ -434,8 +413,7 @@ FunctionInfo* extractAllFunctions(const char* filename) {
                     strstr(line, "{") == NULL && // Ignore opening braces
                     strstr(line, "}") == NULL && // Ignore closing braces
                     strstr(line, "//") == NULL && // Ignore comments
-                    strchr(line, ';') == NULL && // No semicolon
-                    strlen(line) > 2) { // Not an empty line
+                    strchr(line, ';') == NULL && strlen(line) > 2) { // Not an empty line
                     
                     // Check if line should have a semicolon
                     if (isalnum(line[0]) || strchr(line, '=') != NULL || 
@@ -443,12 +421,10 @@ FunctionInfo* extractAllFunctions(const char* filename) {
                         // Potential missing semicolon (further analysis needed for accuracy)
                     }
                 }
-                
                 // Extra semicolons
                 if (strstr(line, ");") != NULL && strstr(line, ");;") != NULL) {
                     // Potential extra semicolon
                 }
-                
                 if (strstr(line, "if") != NULL && strchr(line, '(') != NULL && 
                     strchr(line, ')') != NULL && strchr(line, ';') != NULL && 
                     strchr(line, '{') == NULL) {
@@ -456,7 +432,6 @@ FunctionInfo* extractAllFunctions(const char* filename) {
                 }
             }
         }
-        
         line_number++;
     }
     
@@ -464,7 +439,7 @@ FunctionInfo* extractAllFunctions(const char* filename) {
     if (in_function && current_function != NULL) {
         current_function->end_line = line_number - 1;
     }
-    
+
     fclose(file);
     return functions;
 }
@@ -535,7 +510,7 @@ VariableInfo* extractAllVariables(const char* filename) {
     while (fgets(line, sizeof(line), file)) {
         char current_line_copy[256];
         strncpy(current_line_copy, line, sizeof(current_line_copy) - 1);
-        current_line_copy[sizeof(current_line_copy) - 1] = '\0'; // Ensure null termination
+        current_line_copy[sizeof(current_line_copy) - 1] = '\0';
 
         // 1. Check for Use-After-Free for variables freed on *previous* lines
         checkForUseAfterFree(variables, current_line_copy, line_number);
@@ -576,7 +551,7 @@ VariableInfo* extractAllVariables(const char* filename) {
         if (strstr(current_line_copy, "free(")) { // More specific than just "free"
             char* var_name = extractVariableFromFree(current_line_copy);
             if (var_name != NULL) {
-                markVariableAsFreed(variables, var_name, line_number); // Pass line_number
+                markVariableAsFreed(variables, var_name, line_number);
             } else {
             }
         }

@@ -485,14 +485,16 @@ int main() {
     printf("====Bug-Detection in C using C====\n");
     analyse_code("testcase.txt", &tokenList);
     
+    ShowTokens(tokenList);
+    delete_tokens(tokenList);
+    
+    printf("Report for Variables and Functions in testcase.txt:\n\n");
     report_variables();
     report_functions();
     
     printf("Infinite Recurssions found: \n\n");
     detectInfiniteRecursion("testcase.txt");
 
-    ShowTokens(tokenList);
-    delete_tokens(tokenList);
 
     return 0;
 }

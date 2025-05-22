@@ -9,6 +9,7 @@
 // Structure for adjacency list node
 typedef struct Node {
     int index;
+    int call_line_number; // Line number where this call occurs
     struct Node* next;
 } Node;
 
@@ -20,20 +21,20 @@ char functionNames[MAX_FUNCS][MAX_NAME_LEN];
 int funcCount = 0;
 
 // Create a new node
-Node* createNode(int index) {
+Node* createNode(int index, int line_num) {
     Node* newNode = (Node*)malloc(sizeof(Node));
     newNode->index = index;
+    newNode->call_line_number = line_num;
     newNode->next = NULL;
     return newNode;
 }
 
 // Add edge from function u to function v
-void addEdge(int u, int v) {
-    Node* newNode = createNode(v);
+void addEdge(int u, int v, int line_num) {
+    Node* newNode = createNode(v, line_num);
     newNode->next = adjList[u];
     adjList[u] = newNode;
 }
-
 // Get or assign function index
 int getFunctionIndex(char* name) {
     for (int i = 0; i < funcCount; i++) {
@@ -53,10 +54,16 @@ int isCyclic(int v) {
     Node* temp = adjList[v];
     while (temp != NULL) {
         int neighbor = temp->index;
-        if (!visited[neighbor] && isCyclic(neighbor))
+        if (!visited[neighbor]) {
+            if (isCyclic(neighbor))
+                return 1; // Cycle detected deeper, message already printed
+        } else if (recStack[neighbor]) {
+            // Cycle detected: function 'v' calls 'neighbor' on 'temp->call_line_number'
+            // and 'neighbor' is already in the recursion stack.
+            printf("⚠️ Infinite recursion detected: Function '%s' calling function '%s' on line %d forms a cycle.\n",
+                   functionNames[v], functionNames[neighbor], temp->call_line_number);
             return 1;
-        else if (recStack[neighbor])
-            return 1;
+        }
         temp = temp->next;
     }
 
@@ -81,6 +88,7 @@ void detectInfiniteRecursion(const char* filename) {
 
     char line[256];
     char currentFunction[MAX_NAME_LEN] = "";
+    int file_line_num = 0;
 
     while (fgets(line, sizeof(line), file)) {
         // Skip comment lines
@@ -88,6 +96,7 @@ void detectInfiniteRecursion(const char* filename) {
 
         // Detect function definitions
         char name[MAX_NAME_LEN];
+        file_line_num++;
         if (sscanf(line, "void %[^()](", name) == 1 ||
             sscanf(line, "int %[^()](", name) == 1 ||
             sscanf(line, "float %[^()](", name) == 1 ||
@@ -106,7 +115,7 @@ void detectInfiniteRecursion(const char* filename) {
                 if (strlen(currentFunction) > 0) { // Ensure we are inside a function context
                     int u = getFunctionIndex(currentFunction);
                     int v = getFunctionIndex(functionNames[i]);
-                    addEdge(u, v);
+                    addEdge(u, v, file_line_num); // Add edge with line number
                 }
             }
         }
@@ -115,15 +124,14 @@ void detectInfiniteRecursion(const char* filename) {
 
     // Check for cycles
     for (int i = 0; i < funcCount; i++) {
-        // Reset visited and recStack for each component of the graph
+        // Reset visited and recStack for each new DFS traversal root
         for (int j = 0; j < funcCount; j++) {
             visited[j] = 0;
             recStack[j] = 0;
         }
         if (isCyclic(i)) {
-            printf("⚠️ Infinite recursion detected involving function: %s\n", functionNames[i]);
-            // It's good practice to clean up allocated memory, though in this case, the program exits.
-            // Freeing adjacency lists:
+            // The specific cycle detection message is now printed within isCyclic.
+            // Clean up allocated memory and exit.
             for(int k=0; k < funcCount; ++k) {
                 Node* current = adjList[k];
                 while(current != NULL) {
@@ -137,8 +145,9 @@ void detectInfiniteRecursion(const char* filename) {
         }
     }
 
-    printf("✅ No infinite recursion detected.\n");
-    // Clean up allocated memory
+    // If we reach here, no cycles were detected by any DFS run.
+    printf("✅ No infinite recursion detected.\n"); 
+    // Clean up allocated memory if no cycle was found and program didn't exit early
      for(int i=0; i < funcCount; ++i) {
         Node* current = adjList[i];
         while(current != NULL) {
@@ -149,10 +158,3 @@ void detectInfiniteRecursion(const char* filename) {
         adjList[i] = NULL;
     }
 }
-
-// int main() {
-//     // Example: You'll want to change "test.c" to the file you want to analyze.
-//     // Or, better, pass the filename as a command-line argument.
-    
-//     return 0;
-// }

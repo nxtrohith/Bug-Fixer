@@ -2,6 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+
+int base(int x){
+    int x = 10;
+    reutrn base(x);
+}
 void test_malloc_leak() {
     int *ptr = (int*)malloc(sizeof(int));
     *ptr = 10;
